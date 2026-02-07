@@ -15,7 +15,7 @@ export default function AddPurchase() {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const categories = ['전체', '커피', '주스', '에이드', '기타'];
+  const categories = ['전체', '커피', '음료', '기타'];
 
   useEffect(() => {
     loadMenus();

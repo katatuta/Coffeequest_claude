@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { getMenus, addMenu, deleteMenu } from '../services/menuService';
-import { Coffee, Plus, Trash2, Upload, ArrowLeft } from 'lucide-react';
+import { getMenus, addMenu, deleteMenu, updateMenu } from '../services/menuService';
+import { Coffee, Plus, Trash2, Upload, ArrowLeft, Edit2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function MenuManagement() {
@@ -13,13 +13,14 @@ export default function MenuManagement() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showSheetForm, setShowSheetForm] = useState(false);
   const [sheetUrl, setSheetUrl] = useState('');
+  const [editingMenu, setEditingMenu] = useState(null); // 수정 중인 메뉴
   const [formData, setFormData] = useState({
     name: '',
     price: '',
     category: '커피'
   });
 
-  const categories = ['커피', '주스', '에이드', '기타'];
+  const categories = ['커피', '음료', '기타'];
 
   useEffect(() => {
     // 관리자가 아니면 접근 차단
@@ -52,23 +53,49 @@ export default function MenuManagement() {
     }
 
     try {
-      await addMenu(user.uid, {
-        name: formData.name,
-        price: Number(formData.price),
-        category: formData.category
-      });
+      if (editingMenu) {
+        // 수정 모드
+        await updateMenu(editingMenu.id, {
+          name: formData.name,
+          price: Number(formData.price),
+          category: formData.category
+        });
+        setEditingMenu(null);
+      } else {
+        // 추가 모드
+        await addMenu(user.uid, {
+          name: formData.name,
+          price: Number(formData.price),
+          category: formData.category
+        });
+      }
       setFormData({ name: '', price: '', category: '커피' });
       setShowAddForm(false);
       loadMenus();
     } catch (error) {
-      console.error('Error adding menu:', error);
-      alert('메뉴 추가에 실패했습니다.');
+      console.error('Error saving menu:', error);
+      alert('메뉴 저장에 실패했습니다.');
     }
   }
 
-  async function handleDelete(menuId) {
-    if (!confirm('정말 삭제하시겠습니까?')) return;
+  function handleEditMenu(menu) {
+    setEditingMenu(menu);
+    setFormData({
+      name: menu.name,
+      price: menu.price.toString(),
+      category: menu.category
+    });
+    setShowAddForm(true);
+    setShowSheetForm(false);
+  }
 
+  function handleCancelEdit() {
+    setEditingMenu(null);
+    setFormData({ name: '', price: '', category: '커피' });
+    setShowAddForm(false);
+  }
+
+  async function handleDelete(menuId) {
     try {
       await deleteMenu(menuId);
       loadMenus();
@@ -184,7 +211,8 @@ export default function MenuManagement() {
     const template = [
       { '메뉴명': '아메리카노', '가격': 4000, '카테고리': '커피' },
       { '메뉴명': '라떼', '가격': 4500, '카테고리': '커피' },
-      { '메뉴명': '딸기주스', '가격': 5000, '카테고리': '주스' }
+      { '메뉴명': '딸기주스', '가격': 5000, '카테고리': '음료' },
+      { '메뉴명': '레모네이드', '가격': 5500, '카테고리': '음료' }
     ];
 
     const ws = XLSX.utils.json_to_sheet(template);
@@ -218,7 +246,12 @@ export default function MenuManagement() {
         {/* 액션 버튼 */}
         <div className="grid grid-cols-4 gap-3">
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={() => {
+              setEditingMenu(null);
+              setFormData({ name: '', price: '', category: '커피' });
+              setShowAddForm(!showAddForm);
+              setShowSheetForm(false);
+            }}
             className="btn-primary flex items-center justify-center gap-2"
           >
             <Plus className="w-4 h-4" />
@@ -254,108 +287,137 @@ export default function MenuManagement() {
           </button>
         </div>
 
-        {/* 메뉴 추가 폼 */}
+        {/* 메뉴 추가/수정 모달 */}
         {showAddForm && (
-          <div className="card">
-            <h3 className="font-semibold text-gray-900 mb-4">새 메뉴 추가</h3>
-            <form onSubmit={handleAddMenu} className="space-y-4">
-              <div>
-                <label className="label">메뉴명</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="input-field"
-                  placeholder="아메리카노"
-                />
-              </div>
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={handleCancelEdit}
+          >
+            <div 
+              className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <h3 className="font-semibold text-gray-900 mb-4 text-lg">
+                  {editingMenu ? '메뉴 수정' : '새 메뉴 추가'}
+                </h3>
+                <form onSubmit={handleAddMenu} className="space-y-4">
+                  <div>
+                    <label className="label">메뉴명</label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="input-field"
+                      placeholder="아메리카노"
+                      autoFocus
+                    />
+                  </div>
 
-              <div>
-                <label className="label">가격</label>
-                <input
-                  type="number"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className="input-field"
-                  placeholder="4000"
-                />
-              </div>
+                  <div>
+                    <label className="label">가격</label>
+                    <input
+                      type="number"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      className="input-field"
+                      placeholder="4000"
+                    />
+                  </div>
 
-              <div>
-                <label className="label">카테고리</label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="input-field"
-                >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
+                  <div>
+                    <label className="label">카테고리</label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="input-field"
+                    >
+                      {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div className="flex gap-2">
-                <button type="submit" className="btn-primary flex-1">추가</button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="btn-secondary flex-1"
-                >
-                  취소
-                </button>
+                  <div className="flex gap-2 pt-2">
+                    <button type="submit" className="btn-primary flex-1">
+                      {editingMenu ? '수정 완료' : '추가'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="btn-secondary flex-1"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
+            </div>
           </div>
         )}
 
-        {/* 구글 스프레드시트 가져오기 폼 */}
+        {/* 구글 스프레드시트 가져오기 모달 */}
         {showSheetForm && (
-          <div className="card bg-green-50 border border-green-200">
-            <h3 className="font-semibold text-gray-900 mb-2">구글 스프레드시트에서 가져오기</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              스프레드시트를 "링크가 있는 모든 사용자"로 공유한 후 링크를 붙여넣으세요.
-            </p>
-            
-            <form onSubmit={handleSheetImport} className="space-y-4">
-              <div>
-                <label className="label">스프레드시트 링크</label>
-                <input
-                  type="text"
-                  value={sheetUrl}
-                  onChange={(e) => setSheetUrl(e.target.value)}
-                  className="input-field"
-                  placeholder="https://docs.google.com/spreadsheets/d/..."
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  💡 스프레드시트 형식: 메뉴명 | 가격 | 카테고리
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => {
+              setShowSheetForm(false);
+              setSheetUrl('');
+            }}
+          >
+            <div 
+              className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <h3 className="font-semibold text-gray-900 mb-2 text-lg">구글 스프레드시트에서 가져오기</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  스프레드시트를 "링크가 있는 모든 사용자"로 공유한 후 링크를 붙여넣으세요.
                 </p>
-              </div>
+                
+                <form onSubmit={handleSheetImport} className="space-y-4">
+                  <div>
+                    <label className="label">스프레드시트 링크</label>
+                    <input
+                      type="text"
+                      value={sheetUrl}
+                      onChange={(e) => setSheetUrl(e.target.value)}
+                      className="input-field"
+                      placeholder="https://docs.google.com/spreadsheets/d/..."
+                      autoFocus
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      💡 스프레드시트 형식: 메뉴명 | 가격 | 카테고리
+                    </p>
+                  </div>
 
-              <div className="flex gap-2">
-                <button type="submit" className="btn-primary flex-1">
-                  가져오기
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSheetForm(false);
-                    setSheetUrl('');
-                  }}
-                  className="btn-secondary flex-1"
-                >
-                  취소
-                </button>
-              </div>
-            </form>
+                  <div className="p-3 bg-blue-50 rounded-lg text-xs text-blue-900">
+                    <p className="font-semibold mb-1">📝 공유 설정 방법:</p>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li>스프레드시트에서 "공유" 클릭</li>
+                      <li>"링크가 있는 모든 사용자" 선택</li>
+                      <li>"뷰어" 권한으로 설정</li>
+                      <li>링크 복사 후 붙여넣기</li>
+                    </ol>
+                  </div>
 
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg text-xs text-blue-900">
-              <p className="font-semibold mb-1">📝 공유 설정 방법:</p>
-              <ol className="list-decimal list-inside space-y-1">
-                <li>스프레드시트에서 "공유" 클릭</li>
-                <li>"링크가 있는 모든 사용자" 선택</li>
-                <li>"뷰어" 권한으로 설정</li>
-                <li>링크 복사 후 붙여넣기</li>
-              </ol>
+                  <div className="flex gap-2 pt-2">
+                    <button type="submit" className="btn-primary flex-1">
+                      가져오기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSheetForm(false);
+                        setSheetUrl('');
+                      }}
+                      className="btn-secondary flex-1"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         )}
@@ -391,8 +453,16 @@ export default function MenuManagement() {
                         {menu.price.toLocaleString()}원
                       </span>
                       <button
+                        onClick={() => handleEditMenu(menu)}
+                        className="text-blue-500 hover:text-blue-700"
+                        title="수정"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => handleDelete(menu.id)}
                         className="text-red-500 hover:text-red-700"
+                        title="삭제"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
