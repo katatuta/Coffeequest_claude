@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [budgetStatus, setBudgetStatus] = useState(null);
   const [recentPurchases, setRecentPurchases] = useState([]);
@@ -159,7 +159,7 @@ export default function Dashboard() {
         )}
 
         {/* 빠른 액션 버튼 */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className={`grid ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
           <button
             onClick={() => navigate('/purchase')}
             className="card hover:shadow-lg transition-shadow flex flex-col items-center justify-center py-8"
@@ -168,13 +168,16 @@ export default function Dashboard() {
             <span className="font-semibold text-gray-900">구매 기록</span>
           </button>
 
-          <button
-            onClick={() => navigate('/menus')}
-            className="card hover:shadow-lg transition-shadow flex flex-col items-center justify-center py-8"
-          >
-            <Coffee className="w-8 h-8 text-primary-500 mb-2" />
-            <span className="font-semibold text-gray-900">메뉴 관리</span>
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/menus')}
+              className="card hover:shadow-lg transition-shadow flex flex-col items-center justify-center py-8"
+            >
+              <Coffee className="w-8 h-8 text-primary-500 mb-2" />
+              <span className="font-semibold text-gray-900">메뉴 관리</span>
+              <span className="text-xs text-primary-600 mt-1">관리자</span>
+            </button>
+          )}
         </div>
 
         {/* 최근 구매 내역 */}

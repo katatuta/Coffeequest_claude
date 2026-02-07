@@ -6,7 +6,7 @@ import { Coffee, Plus, Trash2, Upload, ArrowLeft } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function MenuManagement() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,8 +22,14 @@ export default function MenuManagement() {
   const categories = ['커피', '주스', '에이드', '기타'];
 
   useEffect(() => {
+    // 관리자가 아니면 접근 차단
+    if (!isAdmin) {
+      alert('메뉴 관리는 관리자만 접근 가능합니다.');
+      navigate('/');
+      return;
+    }
     loadMenus();
-  }, [user]);
+  }, [user, isAdmin, navigate]);
 
   async function loadMenus() {
     if (!user) return;

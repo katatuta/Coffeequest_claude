@@ -7,16 +7,19 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
+import { isAdmin as checkIsAdmin } from '../config/admin';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
+      setIsAdmin(user ? checkIsAdmin(user.email) : false);
       setLoading(false);
     });
 
@@ -42,6 +45,7 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     loading,
+    isAdmin,
     signup,
     login,
     logout
