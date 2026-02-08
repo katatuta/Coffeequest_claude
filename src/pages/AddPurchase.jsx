@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getMenus } from '../services/menuService';
-import { addPurchase } from '../services/purchaseService';
-import { ArrowLeft, Search, Plus, Minus, ShoppingCart } from 'lucide-react';
+import { addPurchase, getAllPurchases } from '../services/purchaseService';
+import { ArrowLeft, Search, Plus, Minus, ShoppingCart, Clock, TrendingUp } from 'lucide-react';
 
 export default function AddPurchase() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [menus, setMenus] = useState([]);
   const [filteredMenus, setFilteredMenus] = useState([]);
+  const [recentMenus, setRecentMenus] = useState([]); // 최근 구매 메뉴
+  const [frequentMenus, setFrequentMenus] = useState([]); // 자주 구매 메뉴
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
@@ -18,22 +20,60 @@ export default function AddPurchase() {
   const categories = ['전체', '커피', '음료', '기타'];
 
   useEffect(() => {
-    loadMenus();
+    loadData();
   }, [user]);
 
   useEffect(() => {
     filterMenus();
   }, [selectedCategory, searchQuery, menus]);
 
-  async function loadMenus() {
+  async function loadData() {
     if (!user) return;
     try {
       setLoading(true);
-      const data = await getMenus(user.uid);
-      setMenus(data);
-      setFilteredMenus(data);
+      
+      // 메뉴 데이터 로드
+      const menuData = await getMenus(user.uid);
+      setMenus(menuData);
+      setFilteredMenus(menuData);
+
+      // 구매 내역 로드
+      const purchases = await getAllPurchases(user.uid);
+      
+      // 최근 7일 내 구매한 메뉴 계산
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const recentPurchases = purchases.filter(p => 
+        p.purchasedAt && p.purchasedAt >= sevenDaysAgo
+      );
+      
+      const recentMenuIds = [...new Set(recentPurchases.map(p => p.menuId))];
+      const recentMenuList = menuData.filter(m => recentMenuIds.includes(m.id));
+      setRecentMenus(recentMenuList.slice(0, 5)); // 최대 5개
+
+      // 자주 구매한 메뉴 계산 (구매 횟수 기준)
+      const menuPurchaseCount = {};
+      purchases.forEach(p => {
+        if (p.menuId) {
+          menuPurchaseCount[p.menuId] = (menuPurchaseCount[p.menuId] || 0) + p.quantity;
+        }
+      });
+
+      const sortedByFrequency = Object.entries(menuPurchaseCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([menuId]) => menuId);
+      
+      const frequentMenuList = menuData.filter(m => sortedByFrequency.includes(m.id));
+      // 구매 횟수 순서대로 정렬
+      frequentMenuList.sort((a, b) => {
+        return sortedByFrequency.indexOf(a.id) - sortedByFrequency.indexOf(b.id);
+      });
+      setFrequentMenus(frequentMenuList);
+      
     } catch (error) {
-      console.error('Error loading menus:', error);
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -104,6 +144,53 @@ export default function AddPurchase() {
     }
   }
 
+  function renderMenuCard(menu) {
+    const cartItem = cart.find(item => item.id === menu.id);
+    const quantity = cartItem?.quantity || 0;
+
+    return (
+      <div key={menu.id} className="card">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-semibold text-gray-900">{menu.name}</p>
+            <p className="text-sm text-gray-500">{menu.category}</p>
+            <p className="text-lg font-bold text-primary-600 mt-1">
+              {menu.price.toLocaleString()}원
+            </p>
+          </div>
+
+          {quantity === 0 ? (
+            <button
+              onClick={() => addToCart(menu)}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              담기
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => updateQuantity(menu.id, -1)}
+                className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <span className="font-semibold text-lg w-8 text-center">
+                {quantity}
+              </span>
+              <button
+                onClick={() => updateQuantity(menu.id, 1)}
+                className="w-8 h-8 rounded-full bg-primary-500 hover:bg-primary-600 text-white flex items-center justify-center"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
       <header className="bg-white shadow-sm sticky top-0 z-10">
@@ -146,71 +233,64 @@ export default function AddPurchase() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6">
+      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         {loading ? (
           <div className="text-center py-8">
             <ShoppingCart className="w-12 h-12 text-primary-500 mx-auto mb-4 animate-pulse" />
             <p className="text-gray-600">로딩 중...</p>
           </div>
-        ) : filteredMenus.length === 0 ? (
-          <div className="card text-center py-12">
-            <p className="text-gray-600">메뉴가 없습니다.</p>
-            <button
-              onClick={() => navigate('/menus')}
-              className="mt-4 text-primary-600 hover:text-primary-700"
-            >
-              메뉴 추가하기
-            </button>
-          </div>
         ) : (
-          <div className="grid gap-3">
-            {filteredMenus.map(menu => {
-              const cartItem = cart.find(item => item.id === menu.id);
-              const quantity = cartItem?.quantity || 0;
-
-              return (
-                <div key={menu.id} className="card">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-gray-900">{menu.name}</p>
-                      <p className="text-sm text-gray-500">{menu.category}</p>
-                      <p className="text-lg font-bold text-primary-600 mt-1">
-                        {menu.price.toLocaleString()}원
-                      </p>
-                    </div>
-
-                    {quantity === 0 ? (
-                      <button
-                        onClick={() => addToCart(menu)}
-                        className="btn-primary flex items-center gap-2"
-                      >
-                        <Plus className="w-4 h-4" />
-                        담기
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => updateQuantity(menu.id, -1)}
-                          className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
-                        >
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        <span className="font-semibold text-lg w-8 text-center">
-                          {quantity}
-                        </span>
-                        <button
-                          onClick={() => updateQuantity(menu.id, 1)}
-                          className="w-8 h-8 rounded-full bg-primary-500 hover:bg-primary-600 text-white flex items-center justify-center"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+          <>
+            {/* 최근 구매 메뉴 섹션 */}
+            {recentMenus.length > 0 && selectedCategory === '전체' && !searchQuery && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="w-5 h-5 text-primary-500" />
+                  <h2 className="font-semibold text-gray-900">최근 구매 (7일)</h2>
                 </div>
-              );
-            })}
-          </div>
+                <div className="grid gap-3">
+                  {recentMenus.map(menu => renderMenuCard(menu))}
+                </div>
+              </div>
+            )}
+
+            {/* 자주 구매 메뉴 섹션 */}
+            {frequentMenus.length > 0 && selectedCategory === '전체' && !searchQuery && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="w-5 h-5 text-primary-500" />
+                  <h2 className="font-semibold text-gray-900">자주 구매</h2>
+                </div>
+                <div className="grid gap-3">
+                  {frequentMenus.map(menu => renderMenuCard(menu))}
+                </div>
+              </div>
+            )}
+
+            {/* 전체 메뉴 섹션 */}
+            {filteredMenus.length === 0 ? (
+              <div className="card text-center py-12">
+                <p className="text-gray-600">메뉴가 없습니다.</p>
+                <button
+                  onClick={() => navigate('/menus')}
+                  className="mt-4 text-primary-600 hover:text-primary-700"
+                >
+                  메뉴 추가하기
+                </button>
+              </div>
+            ) : (
+              <div>
+                {(recentMenus.length > 0 || frequentMenus.length > 0) && selectedCategory === '전체' && !searchQuery && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <h2 className="font-semibold text-gray-900">전체 메뉴</h2>
+                  </div>
+                )}
+                <div className="grid gap-3">
+                  {filteredMenus.map(menu => renderMenuCard(menu))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
 
