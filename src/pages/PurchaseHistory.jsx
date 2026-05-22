@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getPurchasesByMonth, deletePurchase } from '../services/purchaseService';
-import { ArrowLeft, Trash2, Calendar } from 'lucide-react';
+import { ArrowLeft, Trash2, Calendar, Coffee, Plus, TrendingUp, Store } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -176,6 +176,27 @@ export default function PurchaseHistory() {
           </div>
         )}
       </main>
+
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex justify-around">
+          <button onClick={() => navigate('/')} className="flex flex-col items-center gap-1 text-gray-500 hover:text-gray-900">
+            <Coffee className="w-6 h-6" />
+            <span className="text-xs font-medium">홈</span>
+          </button>
+          <button onClick={() => navigate('/purchase')} className="flex flex-col items-center gap-1 text-gray-500 hover:text-gray-900">
+            <Plus className="w-6 h-6" />
+            <span className="text-xs font-medium">구매</span>
+          </button>
+          <button onClick={() => navigate('/statistics')} className="flex flex-col items-center gap-1 text-gray-500 hover:text-gray-900">
+            <TrendingUp className="w-6 h-6" />
+            <span className="text-xs font-medium">통계</span>
+          </button>
+          <button onClick={() => navigate('/marketplace')} className="flex flex-col items-center gap-1 text-gray-500 hover:text-gray-900">
+            <Store className="w-6 h-6" />
+            <span className="text-xs font-medium">장터</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   query,
   where,
   getDocs,
+  deleteDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -116,6 +117,15 @@ export async function confirmTransaction(transactionId, listingId, requestedAmou
     remainingAmount: Math.max(newRemaining, 0),
     status: newRemaining <= 0 ? 'completed' : 'active',
   });
+}
+
+export async function clearAllMarketplaceData() {
+  const deleteAll = async (col) => {
+    const snap = await getDocs(collection(db, col));
+    await Promise.all(snap.docs.map(d => deleteDoc(doc(db, col, d.id))));
+  };
+  await deleteAll(LISTINGS);
+  await deleteAll(TRANSACTIONS);
 }
 
 // A가 등록 취소 → 미판매 잔량만큼 A 사용액 원복

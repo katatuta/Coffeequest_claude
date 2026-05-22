@@ -11,13 +11,14 @@ import {
   requestPurchase,
   confirmTransaction,
   cancelListing,
+  clearAllMarketplaceData,
 } from '../services/marketplaceService';
 import { ArrowLeft, Store, ShoppingBag, Clock, Check, X, Coffee, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
 export default function Marketplace() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [listings, setListings] = useState([]);
   const [myListings, setMyListings] = useState([]);
@@ -151,6 +152,18 @@ export default function Marketplace() {
           <button onClick={() => setShowListModal(true)} className="btn-primary text-sm">
             잔액 등록
           </button>
+          {isAdmin && (
+            <button
+              onClick={async () => {
+                if (!confirm('모든 장터 거래를 삭제할까요?')) return;
+                await clearAllMarketplaceData();
+                await loadData();
+              }}
+              className="text-xs px-2 py-1 rounded bg-red-100 text-red-600 hover:bg-red-200"
+            >
+              초기화
+            </button>
+          )}
         </div>
 
       </header>
