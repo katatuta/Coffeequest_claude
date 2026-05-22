@@ -147,10 +147,25 @@ export async function confirmTransaction(transactionId, listingId, requestedAmou
 }
 
 export async function clearAllMarketplaceData() {
+  const { year, month } = nowYearMonth();
+
   const deleteAll = async (col) => {
     const snap = await getDocs(collection(db, col));
     await Promise.all(snap.docs.map(d => deleteDoc(doc(db, col, d.id))));
   };
+
+  // 이번 달 마켓플레이스 관련 budget_adjustments도 함께 삭제
+  const adjReasons = ['marketplace_sale', 'marketplace_purchase', 'marketplace_cancel'];
+  const adjSnap = await getDocs(
+    query(
+      collection(db, 'budget_adjustments'),
+      where('year', '==', year),
+      where('month', '==', month),
+    )
+  );
+  const adjDocs = adjSnap.docs.filter(d => adjReasons.includes(d.data().reason));
+  await Promise.all(adjDocs.map(d => deleteDoc(doc(db, 'budget_adjustments', d.id))));
+
   await deleteAll(LISTINGS);
   await deleteAll(TRANSACTIONS);
 }
