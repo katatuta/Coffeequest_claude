@@ -29,6 +29,7 @@ export default function Marketplace() {
 
   const [showListModal, setShowListModal] = useState(false);
   const [listAmount, setListAmount] = useState('');
+  const [listName, setListName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
 
   const [showBuyModal, setShowBuyModal] = useState(false);
@@ -64,6 +65,10 @@ export default function Marketplace() {
   async function handleCreateListing() {
     const amount = parseInt(listAmount);
     if (!amount || amount <= 0) return;
+    if (!listName.trim()) {
+      alert('이름을 입력해주세요.');
+      return;
+    }
     if (!accountNumber.trim()) {
       alert('계좌번호를 입력해주세요.');
       return;
@@ -73,10 +78,10 @@ export default function Marketplace() {
       return;
     }
     try {
-      const name = user.displayName || user.email;
-      await createListing(user.uid, name, amount, accountNumber.trim());
+      await createListing(user.uid, listName.trim(), amount, accountNumber.trim());
       setShowListModal(false);
       setListAmount('');
+      setListName('');
       setAccountNumber('');
       await loadData();
     } catch (error) {
@@ -306,22 +311,17 @@ export default function Marketplace() {
                             </span>
                           </p>
 
-                          {tx.status === 'pending' && (
+                          {(tx.status === 'pending' || tx.status === 'completed') && (
                             <div className="mt-1.5 p-2 bg-primary-50 rounded-lg border border-primary-100">
-                              <p className="text-xs text-gray-500 mb-0.5">아래 계좌로 송금 후 대기하세요</p>
-                              <p className="text-sm font-semibold text-gray-800 flex items-center gap-1">
-                                <CreditCard className="w-4 h-4 text-primary-500" />
+                              <p className="text-sm font-semibold text-gray-800">{tx.sellerName}</p>
+                              <p className="text-sm text-gray-700 flex items-center gap-1 mt-0.5">
+                                <CreditCard className="w-4 h-4 text-primary-500 flex-shrink-0" />
                                 {tx.accountNumber}
                               </p>
-                              <p className="text-xs text-gray-500 mt-1">판매자가 입금 확인 후 승인합니다</p>
+                              {tx.status === 'pending' && (
+                                <p className="text-xs text-gray-500 mt-1">송금 후 판매자 승인을 기다리세요</p>
+                              )}
                             </div>
-                          )}
-
-                          {tx.status === 'completed' && (
-                            <p className="text-sm text-green-600 mt-0.5">
-                              <Check className="w-3 h-3 inline mr-1" />
-                              판매자: <span className="font-semibold">{tx.sellerName}</span>
-                            </p>
                           )}
                         </div>
                         <span className={`ml-2 text-xs px-2 py-1 rounded-full whitespace-nowrap ${
@@ -379,6 +379,16 @@ export default function Marketplace() {
               )}
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">이름</label>
+              <input
+                type="text"
+                value={listName}
+                onChange={e => setListName(e.target.value)}
+                placeholder="구매자에게 표시될 이름"
+                className="input-field w-full"
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 입금받을 계좌번호
               </label>
@@ -389,14 +399,14 @@ export default function Marketplace() {
                 placeholder="예) 카카오뱅크 1234-5678-9012"
                 className="input-field w-full"
               />
-              <p className="text-xs text-gray-400 mt-1">구매자에게 공개됩니다</p>
+              <p className="text-xs text-gray-400 mt-1">이름과 계좌번호는 구매 신청 즉시 공개됩니다</p>
             </div>
             <p className="text-xs text-gray-500 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
               등록 즉시 해당 금액이 사용액에 반영됩니다. 취소하면 미판매 잔량이 원복됩니다.
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowListModal(false); setListAmount(''); setAccountNumber(''); }}
+                onClick={() => { setShowListModal(false); setListAmount(''); setListName(''); setAccountNumber(''); }}
                 className="btn-secondary flex-1"
               >
                 취소
