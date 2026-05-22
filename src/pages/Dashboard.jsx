@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getCurrentBudgetStatus } from '../services/budgetService';
 import { getPurchasesByMonth } from '../services/purchaseService';
-import { Coffee, Plus, TrendingUp, AlertCircle, LogOut } from 'lucide-react';
+import { Coffee, Plus, TrendingUp, AlertCircle, LogOut, Store } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -134,13 +134,21 @@ export default function Dashboard() {
         </div>
 
         {/* 빠른 액션 버튼 */}
-        <div className={`grid ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+        <div className={`grid ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'} gap-4`}>
           <button
             onClick={() => navigate('/purchase')}
             className="card hover:shadow-lg transition-shadow flex flex-col items-center justify-center py-8"
           >
             <Plus className="w-8 h-8 text-primary-500 mb-2" />
             <span className="font-semibold text-gray-900">구매 기록</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/marketplace')}
+            className="card hover:shadow-lg transition-shadow flex flex-col items-center justify-center py-8"
+          >
+            <Store className="w-8 h-8 text-primary-500 mb-2" />
+            <span className="font-semibold text-gray-900">잔액 장터</span>
           </button>
 
           {isAdmin && (
@@ -214,6 +222,13 @@ export default function Dashboard() {
           >
             <Plus className="w-6 h-6" />
             <span className="text-xs font-medium">구매</span>
+          </button>
+          <button
+            onClick={() => navigate('/marketplace')}
+            className="flex flex-col items-center gap-1 text-gray-500 hover:text-gray-900"
+          >
+            <Store className="w-6 h-6" />
+            <span className="text-xs font-medium">장터</span>
           </button>
           <button
             onClick={() => navigate('/statistics')}

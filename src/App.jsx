@@ -7,6 +7,7 @@ import MenuManagement from './pages/MenuManagement';
 import AddPurchase from './pages/AddPurchase';
 import Statistics from './pages/Statistics';
 import PurchaseHistory from './pages/PurchaseHistory';
+import Marketplace from './pages/Marketplace';
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -57,6 +58,11 @@ function AppRoutes() {
       <Route path="/history" element={
         <PrivateRoute>
           <PurchaseHistory />
+        </PrivateRoute>
+      } />
+      <Route path="/marketplace" element={
+        <PrivateRoute>
+          <Marketplace />
         </PrivateRoute>
       } />
     </Routes>
