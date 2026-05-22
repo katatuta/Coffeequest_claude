@@ -39,7 +39,13 @@ export async function createListing(userId, userName, amount, accountNumber) {
 }
 
 export async function getActiveListings() {
-  const q = query(collection(db, LISTINGS), where('status', '==', 'active'));
+  const { year, month } = nowYearMonth();
+  const q = query(
+    collection(db, LISTINGS),
+    where('status', '==', 'active'),
+    where('year', '==', year),
+    where('month', '==', month),
+  );
   const snap = await getDocs(q);
   return snap.docs
     .map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate() }))
@@ -47,7 +53,13 @@ export async function getActiveListings() {
 }
 
 export async function getMyListings(userId) {
-  const q = query(collection(db, LISTINGS), where('sellerId', '==', userId));
+  const { year, month } = nowYearMonth();
+  const q = query(
+    collection(db, LISTINGS),
+    where('sellerId', '==', userId),
+    where('year', '==', year),
+    where('month', '==', month),
+  );
   const snap = await getDocs(q);
   return snap.docs
     .map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate() }))
@@ -55,7 +67,13 @@ export async function getMyListings(userId) {
 }
 
 export async function getMyTransactions(userId) {
-  const q = query(collection(db, TRANSACTIONS), where('buyerId', '==', userId));
+  const { year, month } = nowYearMonth();
+  const q = query(
+    collection(db, TRANSACTIONS),
+    where('buyerId', '==', userId),
+    where('year', '==', year),
+    where('month', '==', month),
+  );
   const snap = await getDocs(q);
   return snap.docs
     .map(d => ({
@@ -67,7 +85,13 @@ export async function getMyTransactions(userId) {
 }
 
 export async function getTransactionsForSeller(userId) {
-  const q = query(collection(db, TRANSACTIONS), where('sellerId', '==', userId));
+  const { year, month } = nowYearMonth();
+  const q = query(
+    collection(db, TRANSACTIONS),
+    where('sellerId', '==', userId),
+    where('year', '==', year),
+    where('month', '==', month),
+  );
   const snap = await getDocs(q);
   return snap.docs
     .map(d => ({
@@ -80,6 +104,7 @@ export async function getTransactionsForSeller(userId) {
 
 // B가 구매 의사 표시 → 계좌번호 포함한 transaction 생성
 export async function requestPurchase(listingId, listing, buyerId, buyerName, requestedAmount) {
+  const { year, month } = nowYearMonth();
   await addDoc(collection(db, TRANSACTIONS), {
     listingId,
     sellerId: listing.sellerId,
@@ -90,6 +115,8 @@ export async function requestPurchase(listingId, listing, buyerId, buyerName, re
     requestedAmount,
     discountedPrice: Math.floor(requestedAmount * 0.9),
     status: 'pending',
+    year,
+    month,
     createdAt: serverTimestamp(),
     completedAt: null,
   });
