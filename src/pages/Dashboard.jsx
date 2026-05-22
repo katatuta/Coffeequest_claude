@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getCurrentBudgetStatus } from '../services/budgetService';
 import { getPurchasesByMonth } from '../services/purchaseService';
-import { Coffee, Plus, TrendingUp, AlertCircle, Lightbulb, LogOut } from 'lucide-react';
+import { Coffee, Plus, TrendingUp, AlertCircle, LogOut } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -56,8 +56,6 @@ export default function Dashboard() {
       </div>
     );
   }
-
-  const showRecommendation = budgetStatus && budgetStatus.remaining <= 20000 && budgetStatus.remaining > 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -134,29 +132,6 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-
-        {/* 잔액 소진 추천 배너 */}
-        {showRecommendation && (
-          <div className="bg-gradient-to-r from-primary-50 to-primary-100 rounded-xl p-4 border border-primary-200">
-            <div className="flex items-start gap-3">
-              <Lightbulb className="w-6 h-6 text-primary-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 mb-1">
-                  잔액 소진 추천
-                </h3>
-                <p className="text-sm text-gray-700 mb-3">
-                  남은 예산으로 정확히 0원을 만들 수 있는 메뉴 조합을 확인해보세요!
-                </p>
-                <button
-                  onClick={() => navigate('/recommendation')}
-                  className="btn-primary text-sm"
-                >
-                  추천 보기
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* 빠른 액션 버튼 */}
         <div className={`grid ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>

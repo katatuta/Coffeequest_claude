@@ -5,7 +5,6 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import MenuManagement from './pages/MenuManagement';
 import AddPurchase from './pages/AddPurchase';
-import BudgetRecommendation from './pages/BudgetRecommendation';
 import Statistics from './pages/Statistics';
 import PurchaseHistory from './pages/PurchaseHistory';
 
@@ -48,11 +47,6 @@ function AppRoutes() {
       <Route path="/purchase" element={
         <PrivateRoute>
           <AddPurchase />
-        </PrivateRoute>
-      } />
-      <Route path="/recommendation" element={
-        <PrivateRoute>
-          <BudgetRecommendation />
         </PrivateRoute>
       } />
       <Route path="/statistics" element={
