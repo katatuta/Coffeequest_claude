@@ -19,7 +19,6 @@ import { ko } from 'date-fns/locale';
 export default function Marketplace() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('market');
   const [listings, setListings] = useState([]);
   const [myListings, setMyListings] = useState([]);
   const [myTransactions, setMyTransactions] = useState([]);
@@ -103,7 +102,6 @@ export default function Marketplace() {
       setBuyAmount('');
       setSelectedListing(null);
       await loadData();
-      setActiveTab('my');
     } catch (error) {
       console.error('Error requesting purchase:', error);
     }
@@ -155,34 +153,54 @@ export default function Marketplace() {
           </button>
         </div>
 
-        <div className="max-w-4xl mx-auto px-4 pb-3 flex gap-2">
-          {['market', 'my'].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeTab === tab ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-700'
-              }`}
-            >
-              {tab === 'market'
-                ? '장터'
-                : `내 거래${pendingSellerTx.length > 0 ? ` (${pendingSellerTx.length})` : ''}`}
-            </button>
-          ))}
-        </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-4 space-y-3">
-        {/* 장터 탭 */}
-        {activeTab === 'market' && (
-          <>
-            {otherListings.length === 0 ? (
-              <div className="card text-center py-12 text-gray-500">
-                <ShoppingBag className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>등록된 잔액이 없습니다.</p>
-              </div>
-            ) : (
-              otherListings.map(listing => (
+      <main className="max-w-4xl mx-auto px-4 py-4 space-y-4">
+
+        {/* 받은 구매 신청 — 최상단 노출 */}
+        {pendingSellerTx.length > 0 && (
+          <div className="card border-l-4 border-green-400">
+            <div className="flex items-center gap-2 mb-3">
+              <Store className="w-5 h-5 text-green-500" />
+              <h2 className="font-semibold text-gray-900">받은 구매 신청 ({pendingSellerTx.length})</h2>
+            </div>
+            <div className="space-y-3">
+              {pendingSellerTx.map(tx => (
+                <div key={tx.id} className="flex items-start justify-between gap-2 py-2 border-b last:border-0">
+                  <div>
+                    <p className="font-medium text-gray-900">{tx.buyerName}</p>
+                    <p className="text-sm text-gray-600">
+                      {tx.requestedAmount.toLocaleString()}원 요청
+                      <span className="text-primary-600 ml-1">({tx.discountedPrice.toLocaleString()}원 받기)</span>
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">계좌로 입금 확인 후 승인해주세요</p>
+                  </div>
+                  <button
+                    onClick={() => handleConfirm(tx)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white text-sm whitespace-nowrap"
+                  >
+                    <Check className="w-4 h-4" />
+                    승인
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 장터 목록 */}
+        <div>
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <ShoppingBag className="w-5 h-5 text-primary-500" />
+            <h2 className="font-semibold text-gray-900">장터</h2>
+          </div>
+          {otherListings.length === 0 ? (
+            <div className="card text-center py-10 text-gray-500">
+              <p className="text-sm">등록된 잔액이 없습니다.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {otherListings.map(listing => (
                 <div key={listing.id} className="card">
                   <div className="flex items-start justify-between">
                     <div>
@@ -213,139 +231,91 @@ export default function Marketplace() {
                     </p>
                   )}
                 </div>
-              ))
-            )}
-          </>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 내 판매 등록 */}
+        {myListings.filter(l => l.status === 'active').length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-3 px-1">
+              <Store className="w-5 h-5 text-primary-500" />
+              <h2 className="font-semibold text-gray-900">내 판매 등록</h2>
+            </div>
+            <div className="card space-y-3">
+              {myListings.filter(l => l.status === 'active').map(listing => (
+                <div key={listing.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <div>
+                    <p className="font-medium text-gray-900">{listing.remainingAmount.toLocaleString()}원 판매 중</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      <CreditCard className="w-3 h-3 inline mr-1" />
+                      {listing.accountNumber}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleCancelListing(listing)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm"
+                  >
+                    <X className="w-4 h-4" />
+                    취소
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
-        {/* 내 거래 탭 */}
-        {activeTab === 'my' && (
-          <>
-            {/* 판매자: 들어온 구매 신청 */}
-            {pendingSellerTx.length > 0 && (
-              <div className="card">
-                <div className="flex items-center gap-2 mb-3">
-                  <Store className="w-5 h-5 text-primary-500" />
-                  <h2 className="font-semibold text-gray-900">받은 구매 신청</h2>
-                </div>
-                <div className="space-y-3">
-                  {pendingSellerTx.map(tx => (
-                    <div key={tx.id} className="py-3 border-b last:border-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium text-gray-900">{tx.buyerName}</p>
-                          <p className="text-sm text-gray-600">
-                            {tx.requestedAmount.toLocaleString()}원 요청
-                            <span className="text-primary-600 ml-1">
-                              ({tx.discountedPrice.toLocaleString()}원 받기)
-                            </span>
+        {/* 내 구매 신청 */}
+        {myTransactions.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-3 px-1">
+              <ShoppingBag className="w-5 h-5 text-primary-500" />
+              <h2 className="font-semibold text-gray-900">내 구매 신청</h2>
+            </div>
+            <div className="card space-y-3">
+              {myTransactions.map(tx => (
+                <div key={tx.id} className="py-2 border-b last:border-0">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">
+                        {tx.requestedAmount.toLocaleString()}원
+                        <span className="text-primary-600 ml-1 font-normal text-sm">
+                          ({tx.discountedPrice.toLocaleString()}원 지급)
+                        </span>
+                      </p>
+                      {(tx.status === 'pending' || tx.status === 'completed') && (
+                        <div className="mt-1.5 p-2 bg-primary-50 rounded-lg border border-primary-100">
+                          <p className="text-sm font-semibold text-gray-800">{tx.sellerName}</p>
+                          <p className="text-sm text-gray-700 flex items-center gap-1 mt-0.5">
+                            <CreditCard className="w-4 h-4 text-primary-500 flex-shrink-0" />
+                            {tx.accountNumber}
                           </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            계좌로 입금 확인 후 승인해주세요
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => handleConfirm(tx)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white text-sm whitespace-nowrap"
-                        >
-                          <Check className="w-4 h-4" />
-                          승인
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 판매자: 내 등록 목록 */}
-            {myListings.filter(l => l.status === 'active').length > 0 && (
-              <div className="card">
-                <div className="flex items-center gap-2 mb-3">
-                  <Store className="w-5 h-5 text-primary-500" />
-                  <h2 className="font-semibold text-gray-900">내 판매 등록</h2>
-                </div>
-                <div className="space-y-3">
-                  {myListings.filter(l => l.status === 'active').map(listing => (
-                    <div key={listing.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {listing.remainingAmount.toLocaleString()}원 판매 중
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          <CreditCard className="w-3 h-3 inline mr-1" />
-                          {listing.accountNumber}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleCancelListing(listing)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm"
-                      >
-                        <X className="w-4 h-4" />
-                        취소
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 구매자: 내가 신청한 거래 */}
-            <div className="card">
-              <div className="flex items-center gap-2 mb-3">
-                <ShoppingBag className="w-5 h-5 text-primary-500" />
-                <h2 className="font-semibold text-gray-900">내 구매 신청</h2>
-              </div>
-              {myTransactions.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">신청한 거래가 없습니다.</p>
-              ) : (
-                <div className="space-y-3">
-                  {myTransactions.map(tx => (
-                    <div key={tx.id} className="py-2 border-b last:border-0">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">
-                            {tx.requestedAmount.toLocaleString()}원
-                            <span className="text-primary-600 ml-1 font-normal text-sm">
-                              ({tx.discountedPrice.toLocaleString()}원 지급)
-                            </span>
-                          </p>
-
-                          {(tx.status === 'pending' || tx.status === 'completed') && (
-                            <div className="mt-1.5 p-2 bg-primary-50 rounded-lg border border-primary-100">
-                              <p className="text-sm font-semibold text-gray-800">{tx.sellerName}</p>
-                              <p className="text-sm text-gray-700 flex items-center gap-1 mt-0.5">
-                                <CreditCard className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                                {tx.accountNumber}
-                              </p>
-                              {tx.status === 'pending' && (
-                                <p className="text-xs text-gray-500 mt-1">송금 후 판매자 승인을 기다리세요</p>
-                              )}
-                            </div>
+                          {tx.status === 'pending' && (
+                            <p className="text-xs text-gray-500 mt-1">송금 후 판매자 승인을 기다리세요</p>
                           )}
                         </div>
-                        <span className={`ml-2 text-xs px-2 py-1 rounded-full whitespace-nowrap ${
-                          tx.status === 'completed'
-                            ? 'bg-green-100 text-green-700'
-                            : tx.status === 'cancelled'
-                            ? 'bg-gray-100 text-gray-500'
-                            : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {tx.status === 'completed' ? '완료' : tx.status === 'cancelled' ? '취소' : '대기'}
-                        </span>
-                      </div>
-                      {tx.createdAt && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          {format(tx.createdAt, 'MM월 dd일 HH:mm', { locale: ko })}
-                        </p>
                       )}
                     </div>
-                  ))}
+                    <span className={`ml-2 text-xs px-2 py-1 rounded-full whitespace-nowrap ${
+                      tx.status === 'completed' ? 'bg-green-100 text-green-700'
+                      : tx.status === 'cancelled' ? 'bg-gray-100 text-gray-500'
+                      : 'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {tx.status === 'completed' ? '완료' : tx.status === 'cancelled' ? '취소' : '대기'}
+                    </span>
+                  </div>
+                  {tx.createdAt && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      {format(tx.createdAt, 'MM월 dd일 HH:mm', { locale: ko })}
+                    </p>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
-          </>
+          </div>
         )}
+
       </main>
 
       {/* 잔액 등록 모달 */}
