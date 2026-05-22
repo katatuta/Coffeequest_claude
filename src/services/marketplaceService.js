@@ -20,7 +20,7 @@ function nowYearMonth() {
 }
 
 // A가 잔액 등록 → A 사용액 즉시 증가
-export async function createListing(userId, userName, amount, accountNumber) {
+export async function createListing(userId, userName, amount, accountNumber, discountRate = 10) {
   const { year, month } = nowYearMonth();
   const docRef = await addDoc(collection(db, LISTINGS), {
     sellerId: userId,
@@ -28,6 +28,7 @@ export async function createListing(userId, userName, amount, accountNumber) {
     accountNumber,
     totalAmount: amount,
     remainingAmount: amount,
+    discountRate,
     status: 'active',
     year,
     month,
@@ -47,7 +48,7 @@ export async function getActiveListings() {
   const snap = await getDocs(q);
   return snap.docs
     .map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate() }))
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    .sort((a, b) => (b.discountRate || 10) - (a.discountRate || 10));
 }
 
 export async function getMyListings(userId) {
@@ -111,7 +112,7 @@ export async function requestPurchase(listingId, listing, buyerId, buyerName, re
     buyerId,
     buyerName,
     requestedAmount,
-    discountedPrice: Math.floor(requestedAmount * 0.9),
+    discountedPrice: Math.floor(requestedAmount * (1 - (listing.discountRate || 10) / 100)),
     status: 'pending',
     year,
     month,

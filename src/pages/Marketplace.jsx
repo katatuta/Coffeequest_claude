@@ -13,7 +13,7 @@ import {
   cancelListing,
   clearAllMarketplaceData,
 } from '../services/marketplaceService';
-import { ArrowLeft, Store, ShoppingBag, Clock, Check, X, Coffee, CreditCard } from 'lucide-react';
+import { ArrowLeft, Store, ShoppingBag, Clock, Check, X, Coffee, CreditCard, Percent } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -29,6 +29,7 @@ export default function Marketplace() {
 
   const [showListModal, setShowListModal] = useState(false);
   const [listAmount, setListAmount] = useState('');
+  const [listDiscountRate, setListDiscountRate] = useState('10');
   const [listName, setListName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
 
@@ -65,6 +66,11 @@ export default function Marketplace() {
   async function handleCreateListing() {
     const amount = parseInt(listAmount);
     if (!amount || amount <= 0) return;
+    const discountRate = parseInt(listDiscountRate);
+    if (!discountRate || discountRate < 1 || discountRate > 99) {
+      alert('할인율을 1~99 사이로 입력해주세요.');
+      return;
+    }
     if (!listName.trim()) {
       alert('이름을 입력해주세요.');
       return;
@@ -78,9 +84,10 @@ export default function Marketplace() {
       return;
     }
     try {
-      await createListing(user.uid, listName.trim(), amount, accountNumber.trim());
+      await createListing(user.uid, listName.trim(), amount, accountNumber.trim(), discountRate);
       setShowListModal(false);
       setListAmount('');
+      setListDiscountRate('10');
       setListName('');
       setAccountNumber('');
       await loadData();
@@ -213,38 +220,52 @@ export default function Marketplace() {
             </div>
           ) : (
             <div className="space-y-3">
-              {otherListings.map(listing => (
-                <div key={listing.id} className="card">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">익명의 판매자</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {listing.remainingAmount.toLocaleString()}원
-                        {listing.remainingAmount < listing.totalAmount && (
-                          <span className="text-sm font-normal text-gray-400 ml-2">
-                            (원래 {listing.totalAmount.toLocaleString()}원)
+              {otherListings.map(listing => {
+                const rate = listing.discountRate || 10;
+                const discountedMax = Math.floor(listing.remainingAmount * (1 - rate / 100));
+                return (
+                  <div key={listing.id} className="card">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm text-gray-500">익명의 판매자</p>
+                          <span className={`flex items-center gap-0.5 text-xs font-bold px-2 py-0.5 rounded-full ${
+                            rate >= 30 ? 'bg-red-100 text-red-600'
+                            : rate >= 20 ? 'bg-orange-100 text-orange-600'
+                            : 'bg-primary-100 text-primary-600'
+                          }`}>
+                            <Percent className="w-3 h-3" />
+                            {rate}% 할인
                           </span>
-                        )}
-                      </p>
-                      <p className="text-sm text-primary-600 mt-1">
-                        10% 할인 — 최대 {Math.floor(listing.remainingAmount * 0.9).toLocaleString()}원에 구매
-                      </p>
+                        </div>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {listing.remainingAmount.toLocaleString()}원
+                          {listing.remainingAmount < listing.totalAmount && (
+                            <span className="text-sm font-normal text-gray-400 ml-2">
+                              (원래 {listing.totalAmount.toLocaleString()}원)
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-sm text-primary-600 mt-1">
+                          최대 <span className="font-semibold">{discountedMax.toLocaleString()}원</span>에 구매
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => { setSelectedListing(listing); setBuyAmount(''); setShowBuyModal(true); }}
+                        className="btn-primary text-sm ml-3"
+                      >
+                        구매 신청
+                      </button>
                     </div>
-                    <button
-                      onClick={() => { setSelectedListing(listing); setBuyAmount(''); setShowBuyModal(true); }}
-                      className="btn-primary text-sm"
-                    >
-                      구매 신청
-                    </button>
+                    {listing.createdAt && (
+                      <p className="text-xs text-gray-400 mt-2">
+                        <Clock className="w-3 h-3 inline mr-1" />
+                        {format(listing.createdAt, 'MM월 dd일 HH:mm', { locale: ko })}
+                      </p>
+                    )}
                   </div>
-                  {listing.createdAt && (
-                    <p className="text-xs text-gray-400 mt-2">
-                      <Clock className="w-3 h-3 inline mr-1" />
-                      {format(listing.createdAt, 'MM월 dd일 HH:mm', { locale: ko })}
-                    </p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -260,7 +281,12 @@ export default function Marketplace() {
               {myListings.filter(l => l.status === 'active').map(listing => (
                 <div key={listing.id} className="flex items-center justify-between py-2 border-b last:border-0">
                   <div>
-                    <p className="font-medium text-gray-900">{listing.remainingAmount.toLocaleString()}원 판매 중</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-gray-900">{listing.remainingAmount.toLocaleString()}원 판매 중</p>
+                      <span className="text-xs font-bold text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">
+                        {listing.discountRate || 10}% 할인
+                      </span>
+                    </div>
                     <p className="text-xs text-gray-400 mt-0.5">
                       <CreditCard className="w-3 h-3 inline mr-1" />
                       {listing.accountNumber}
@@ -355,9 +381,28 @@ export default function Marketplace() {
                 max={budgetStatus?.remaining}
                 min={1}
               />
-              {listAmount && parseInt(listAmount) > 0 && (
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">할인율 (%)</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={listDiscountRate}
+                  onChange={e => setListDiscountRate(e.target.value)}
+                  placeholder="예) 30"
+                  className="input-field w-full pr-8"
+                  min={1}
+                  max={99}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">%</span>
+              </div>
+              {listAmount && parseInt(listAmount) > 0 && listDiscountRate && parseInt(listDiscountRate) > 0 && (
                 <p className="text-sm text-primary-600 mt-1">
-                  구매자는 최대 {Math.floor(parseInt(listAmount) * 0.9).toLocaleString()}원에 구매합니다
+                  구매자는 최대{' '}
+                  <span className="font-semibold">
+                    {Math.floor(parseInt(listAmount) * (1 - parseInt(listDiscountRate) / 100)).toLocaleString()}원
+                  </span>
+                  에 구매합니다 ({listDiscountRate}% 할인)
                 </p>
               )}
             </div>
@@ -389,7 +434,7 @@ export default function Marketplace() {
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowListModal(false); setListAmount(''); setListName(''); setAccountNumber(''); }}
+                onClick={() => { setShowListModal(false); setListAmount(''); setListDiscountRate('10'); setListName(''); setAccountNumber(''); }}
                 className="btn-secondary flex-1"
               >
                 취소
@@ -406,7 +451,16 @@ export default function Marketplace() {
       {showBuyModal && selectedListing && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
           <div className="bg-white w-full rounded-t-2xl p-6 space-y-4">
-            <h2 className="text-lg font-bold text-gray-900">구매 신청</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-900">구매 신청</h2>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                (selectedListing.discountRate || 10) >= 30 ? 'bg-red-100 text-red-600'
+                : (selectedListing.discountRate || 10) >= 20 ? 'bg-orange-100 text-orange-600'
+                : 'bg-primary-100 text-primary-600'
+              }`}>
+                {selectedListing.discountRate || 10}% 할인
+              </span>
+            </div>
             <p className="text-sm text-gray-600">
               최대 구매 가능:{' '}
               <span className="font-semibold text-primary-600">
@@ -427,8 +481,10 @@ export default function Marketplace() {
               {buyAmount && parseInt(buyAmount) > 0 && (
                 <p className="text-sm text-primary-600 mt-1">
                   실제 지급 금액:{' '}
-                  <span className="font-bold">{Math.floor(parseInt(buyAmount) * 0.9).toLocaleString()}원</span>
-                  <span className="text-gray-500 ml-1">(10% 할인)</span>
+                  <span className="font-bold">
+                    {Math.floor(parseInt(buyAmount) * (1 - (selectedListing.discountRate || 10) / 100)).toLocaleString()}원
+                  </span>
+                  <span className="text-gray-500 ml-1">({selectedListing.discountRate || 10}% 할인)</span>
                 </p>
               )}
             </div>
