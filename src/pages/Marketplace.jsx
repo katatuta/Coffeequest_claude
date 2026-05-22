@@ -12,7 +12,7 @@ import {
   confirmTransaction,
   cancelListing,
 } from '../services/marketplaceService';
-import { ArrowLeft, Store, ShoppingBag, Clock, Check, X, Coffee } from 'lucide-react';
+import { ArrowLeft, Store, ShoppingBag, Clock, Check, X, Coffee, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -29,6 +29,7 @@ export default function Marketplace() {
 
   const [showListModal, setShowListModal] = useState(false);
   const [listAmount, setListAmount] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
 
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
@@ -63,15 +64,20 @@ export default function Marketplace() {
   async function handleCreateListing() {
     const amount = parseInt(listAmount);
     if (!amount || amount <= 0) return;
+    if (!accountNumber.trim()) {
+      alert('계좌번호를 입력해주세요.');
+      return;
+    }
     if (budgetStatus && amount > budgetStatus.remaining) {
       alert('잔액보다 많은 금액은 등록할 수 없습니다.');
       return;
     }
     try {
       const name = user.displayName || user.email;
-      await createListing(user.uid, name, amount);
+      await createListing(user.uid, name, amount, accountNumber.trim());
       setShowListModal(false);
       setListAmount('');
+      setAccountNumber('');
       await loadData();
     } catch (error) {
       console.error('Error creating listing:', error);
@@ -92,6 +98,7 @@ export default function Marketplace() {
       setBuyAmount('');
       setSelectedListing(null);
       await loadData();
+      setActiveTab('my');
     } catch (error) {
       console.error('Error requesting purchase:', error);
     }
@@ -99,16 +106,16 @@ export default function Marketplace() {
 
   async function handleConfirm(tx) {
     try {
-      await confirmTransaction(tx.id, tx.listingId, tx.requestedAmount, tx.sellerId);
+      await confirmTransaction(tx.id, tx.listingId, tx.requestedAmount, tx.sellerId, tx.buyerId);
       await loadData();
     } catch (error) {
       console.error('Error confirming transaction:', error);
     }
   }
 
-  async function handleCancelListing(listingId) {
+  async function handleCancelListing(listing) {
     try {
-      await cancelListing(listingId);
+      await cancelListing(listing.id, listing.sellerId, listing.remainingAmount);
       await loadData();
     } catch (error) {
       console.error('Error cancelling listing:', error);
@@ -138,10 +145,7 @@ export default function Marketplace() {
           </button>
           <Store className="w-5 h-5 text-primary-500" />
           <h1 className="text-lg font-bold text-gray-900 flex-1">잔액 장터</h1>
-          <button
-            onClick={() => setShowListModal(true)}
-            className="btn-primary text-sm"
-          >
+          <button onClick={() => setShowListModal(true)} className="btn-primary text-sm">
             잔액 등록
           </button>
         </div>
@@ -152,18 +156,19 @@ export default function Marketplace() {
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeTab === tab
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-gray-200 text-gray-700'
+                activeTab === tab ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-700'
               }`}
             >
-              {tab === 'market' ? '장터' : `내 거래${pendingSellerTx.length > 0 ? ` (${pendingSellerTx.length})` : ''}`}
+              {tab === 'market'
+                ? '장터'
+                : `내 거래${pendingSellerTx.length > 0 ? ` (${pendingSellerTx.length})` : ''}`}
             </button>
           ))}
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-4 space-y-3">
+        {/* 장터 탭 */}
         {activeTab === 'market' && (
           <>
             {otherListings.length === 0 ? (
@@ -208,9 +213,10 @@ export default function Marketplace() {
           </>
         )}
 
+        {/* 내 거래 탭 */}
         {activeTab === 'my' && (
           <>
-            {/* 판매 — 들어온 신청 */}
+            {/* 판매자: 들어온 구매 신청 */}
             {pendingSellerTx.length > 0 && (
               <div className="card">
                 <div className="flex items-center gap-2 mb-3">
@@ -219,30 +225,35 @@ export default function Marketplace() {
                 </div>
                 <div className="space-y-3">
                   {pendingSellerTx.map(tx => (
-                    <div key={tx.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                      <div>
-                        <p className="font-medium text-gray-900">{tx.buyerName}</p>
-                        <p className="text-sm text-gray-600">
-                          {tx.requestedAmount.toLocaleString()}원 요청
-                          <span className="text-primary-600 ml-1">
-                            ({tx.discountedPrice.toLocaleString()}원 받기)
-                          </span>
-                        </p>
+                    <div key={tx.id} className="py-3 border-b last:border-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-gray-900">{tx.buyerName}</p>
+                          <p className="text-sm text-gray-600">
+                            {tx.requestedAmount.toLocaleString()}원 요청
+                            <span className="text-primary-600 ml-1">
+                              ({tx.discountedPrice.toLocaleString()}원 받기)
+                            </span>
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            계좌로 입금 확인 후 승인해주세요
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleConfirm(tx)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white text-sm whitespace-nowrap"
+                        >
+                          <Check className="w-4 h-4" />
+                          승인
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleConfirm(tx)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white text-sm"
-                      >
-                        <Check className="w-4 h-4" />
-                        완료 확인
-                      </button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* 판매 — 내 등록 목록 */}
+            {/* 판매자: 내 등록 목록 */}
             {myListings.filter(l => l.status === 'active').length > 0 && (
               <div className="card">
                 <div className="flex items-center gap-2 mb-3">
@@ -254,14 +265,15 @@ export default function Marketplace() {
                     <div key={listing.id} className="flex items-center justify-between py-2 border-b last:border-0">
                       <div>
                         <p className="font-medium text-gray-900">
-                          {listing.remainingAmount.toLocaleString()}원 남음
+                          {listing.remainingAmount.toLocaleString()}원 판매 중
                         </p>
-                        <p className="text-sm text-gray-500">
-                          원래 {listing.totalAmount.toLocaleString()}원 등록
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          <CreditCard className="w-3 h-3 inline mr-1" />
+                          {listing.accountNumber}
                         </p>
                       </div>
                       <button
-                        onClick={() => handleCancelListing(listing.id)}
+                        onClick={() => handleCancelListing(listing)}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm"
                       >
                         <X className="w-4 h-4" />
@@ -273,7 +285,7 @@ export default function Marketplace() {
               </div>
             )}
 
-            {/* 구매 — 내가 신청한 거래 */}
+            {/* 구매자: 내가 신청한 거래 */}
             <div className="card">
               <div className="flex items-center gap-2 mb-3">
                 <ShoppingBag className="w-5 h-5 text-primary-500" />
@@ -285,32 +297,41 @@ export default function Marketplace() {
                 <div className="space-y-3">
                   {myTransactions.map(tx => (
                     <div key={tx.id} className="py-2 border-b last:border-0">
-                      <div className="flex items-center justify-between">
-                        <div>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
                           <p className="font-medium text-gray-900">
                             {tx.requestedAmount.toLocaleString()}원
                             <span className="text-primary-600 ml-1 font-normal text-sm">
                               ({tx.discountedPrice.toLocaleString()}원 지급)
                             </span>
                           </p>
-                          {tx.status === 'completed' ? (
+
+                          {tx.status === 'pending' && (
+                            <div className="mt-1.5 p-2 bg-primary-50 rounded-lg border border-primary-100">
+                              <p className="text-xs text-gray-500 mb-0.5">아래 계좌로 송금 후 대기하세요</p>
+                              <p className="text-sm font-semibold text-gray-800 flex items-center gap-1">
+                                <CreditCard className="w-4 h-4 text-primary-500" />
+                                {tx.accountNumber}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">판매자가 입금 확인 후 승인합니다</p>
+                            </div>
+                          )}
+
+                          {tx.status === 'completed' && (
                             <p className="text-sm text-green-600 mt-0.5">
                               <Check className="w-3 h-3 inline mr-1" />
                               판매자: <span className="font-semibold">{tx.sellerName}</span>
                             </p>
-                          ) : (
-                            <p className="text-sm text-gray-500 mt-0.5">
-                              <Clock className="w-3 h-3 inline mr-1" />
-                              상대방 확인 대기 중
-                            </p>
                           )}
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded-full ${
+                        <span className={`ml-2 text-xs px-2 py-1 rounded-full whitespace-nowrap ${
                           tx.status === 'completed'
                             ? 'bg-green-100 text-green-700'
+                            : tx.status === 'cancelled'
+                            ? 'bg-gray-100 text-gray-500'
                             : 'bg-yellow-100 text-yellow-700'
                         }`}>
-                          {tx.status === 'completed' ? '완료' : '대기'}
+                          {tx.status === 'completed' ? '완료' : tx.status === 'cancelled' ? '취소' : '대기'}
                         </span>
                       </div>
                       {tx.createdAt && (
@@ -334,11 +355,14 @@ export default function Marketplace() {
             <h2 className="text-lg font-bold text-gray-900">잔액 등록</h2>
             {budgetStatus && (
               <p className="text-sm text-gray-600">
-                현재 잔액: <span className="font-semibold text-primary-600">{budgetStatus.remaining.toLocaleString()}원</span>
+                현재 잔액:{' '}
+                <span className="font-semibold text-primary-600">
+                  {budgetStatus.remaining.toLocaleString()}원
+                </span>
               </p>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">등록 금액</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">판매 금액</label>
               <input
                 type="number"
                 value={listAmount}
@@ -354,8 +378,27 @@ export default function Marketplace() {
                 </p>
               )}
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                입금받을 계좌번호
+              </label>
+              <input
+                type="text"
+                value={accountNumber}
+                onChange={e => setAccountNumber(e.target.value)}
+                placeholder="예) 카카오뱅크 1234-5678-9012"
+                className="input-field w-full"
+              />
+              <p className="text-xs text-gray-400 mt-1">구매자에게 공개됩니다</p>
+            </div>
+            <p className="text-xs text-gray-500 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+              등록 즉시 해당 금액이 사용액에 반영됩니다. 취소하면 미판매 잔량이 원복됩니다.
+            </p>
             <div className="flex gap-3">
-              <button onClick={() => { setShowListModal(false); setListAmount(''); }} className="btn-secondary flex-1">
+              <button
+                onClick={() => { setShowListModal(false); setListAmount(''); setAccountNumber(''); }}
+                className="btn-secondary flex-1"
+              >
                 취소
               </button>
               <button onClick={handleCreateListing} className="btn-primary flex-1">
@@ -372,7 +415,10 @@ export default function Marketplace() {
           <div className="bg-white w-full rounded-t-2xl p-6 space-y-4">
             <h2 className="text-lg font-bold text-gray-900">구매 신청</h2>
             <p className="text-sm text-gray-600">
-              최대 구매 가능: <span className="font-semibold text-primary-600">{selectedListing.remainingAmount.toLocaleString()}원</span>
+              최대 구매 가능:{' '}
+              <span className="font-semibold text-primary-600">
+                {selectedListing.remainingAmount.toLocaleString()}원
+              </span>
             </p>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">구매 금액</label>
@@ -387,16 +433,20 @@ export default function Marketplace() {
               />
               {buyAmount && parseInt(buyAmount) > 0 && (
                 <p className="text-sm text-primary-600 mt-1">
-                  실제 지급 금액: <span className="font-bold">{Math.floor(parseInt(buyAmount) * 0.9).toLocaleString()}원</span>
+                  실제 지급 금액:{' '}
+                  <span className="font-bold">{Math.floor(parseInt(buyAmount) * 0.9).toLocaleString()}원</span>
                   <span className="text-gray-500 ml-1">(10% 할인)</span>
                 </p>
               )}
             </div>
-            <p className="text-xs text-gray-500">
-              신청 후 판매자와 직접 결제(카카오페이 등)를 진행하세요. 판매자가 확인하면 이름이 공개됩니다.
+            <p className="text-xs text-gray-500 bg-blue-50 p-3 rounded-lg border border-blue-100">
+              신청 후 계좌번호가 공개됩니다. 직접 송금 후 판매자 승인을 기다리세요. 승인 시 내 사용액이 감소합니다.
             </p>
             <div className="flex gap-3">
-              <button onClick={() => { setShowBuyModal(false); setBuyAmount(''); setSelectedListing(null); }} className="btn-secondary flex-1">
+              <button
+                onClick={() => { setShowBuyModal(false); setBuyAmount(''); setSelectedListing(null); }}
+                className="btn-secondary flex-1"
+              >
                 취소
               </button>
               <button onClick={handleRequestPurchase} className="btn-primary flex-1">
