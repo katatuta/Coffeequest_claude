@@ -119,7 +119,7 @@ export default function Marketplace() {
 
   async function handleCancelListing(listing) {
     try {
-      await cancelListing(listing.id, listing.sellerId, listing.remainingAmount);
+      await cancelListing(listing.id, listing.sellerId);
       await loadData();
     } catch (error) {
       console.error('Error cancelling listing:', error);

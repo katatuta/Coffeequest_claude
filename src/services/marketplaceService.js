@@ -10,7 +10,6 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { addBudgetAdjustment } from './budgetService';
 
 const LISTINGS = 'marketplace_listings';
 const TRANSACTIONS = 'marketplace_transactions';
@@ -34,7 +33,6 @@ export async function createListing(userId, userName, amount, accountNumber) {
     month,
     createdAt: serverTimestamp(),
   });
-  await addBudgetAdjustment(userId, amount, 'marketplace_sale', docRef.id, year, month);
   return docRef.id;
 }
 
@@ -122,17 +120,12 @@ export async function requestPurchase(listingId, listing, buyerId, buyerName, re
   });
 }
 
-// A가 승인 → B 사용액 감소, listing 잔량 차감
+// A가 승인 → listing 잔량 차감 (예산은 budgetService에서 동적 계산)
 export async function confirmTransaction(transactionId, listingId, requestedAmount, sellerId, buyerId) {
-  const { year, month } = nowYearMonth();
-
   await updateDoc(doc(db, TRANSACTIONS, transactionId), {
     status: 'completed',
     completedAt: serverTimestamp(),
   });
-
-  // B 사용액 감소 (음수 조정)
-  await addBudgetAdjustment(buyerId, -requestedAmount, 'marketplace_purchase', transactionId, year, month);
 
   // listing 잔량 차감
   const snap = await getDocs(query(collection(db, LISTINGS), where('sellerId', '==', sellerId)));
@@ -165,10 +158,8 @@ export async function clearAllMarketplaceData() {
   await deleteAll(TRANSACTIONS);
 }
 
-// A가 등록 취소 → 미판매 잔량만큼 A 사용액 원복
-export async function cancelListing(listingId, sellerId, remainingAmount) {
-  const { year, month } = nowYearMonth();
-
+// A가 등록 취소 (예산은 budgetService에서 동적 계산)
+export async function cancelListing(listingId, sellerId) {
   await updateDoc(doc(db, LISTINGS, listingId), { status: 'cancelled' });
 
   // pending 거래도 모두 취소
@@ -176,9 +167,4 @@ export async function cancelListing(listingId, sellerId, remainingAmount) {
     query(collection(db, TRANSACTIONS), where('listingId', '==', listingId), where('status', '==', 'pending'))
   );
   await Promise.all(txSnap.docs.map(d => updateDoc(doc(db, TRANSACTIONS, d.id), { status: 'cancelled' })));
-
-  // 미판매분만큼 원복 (음수 조정)
-  if (remainingAmount > 0) {
-    await addBudgetAdjustment(sellerId, -remainingAmount, 'marketplace_cancel', listingId, year, month);
-  }
 }
